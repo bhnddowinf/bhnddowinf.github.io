@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="水墨風中秋卡片：明月、遠山，胖師傅吃月餅，玉兔跳呀跳。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="中秋節快樂">
+<meta property="og:description" content="水墨風中秋卡片：明月、遠山，胖師傅吃月餅，玉兔跳呀跳。點開來看看！">
+<meta property="og:url" content="https://bhnddowinf.github.io/mid-autumn/">
+<meta property="og:image" content="https://bhnddowinf.github.io/mid-autumn/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<title>水墨中秋</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&display=swap">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  :root {
+    --wall: #211e1a;
+    --silk: #c8b48a;
+    --silk-edge: #9f8a62;
+    --rod-hi: #6a4b35;
+    --rod-lo: #2a1d14;
+    --text: #e6d9bd;
+    --muted: #a3957a;
+    --seal: #b22c24;
+    color-scheme: dark;
+  }
+  html, body { background: var(--wall); }
+  body {
+    color: var(--text);
+    font-family: 'LXGW WenKai TC', 'Kaiti TC', KaiTi, 'Noto Serif TC', serif;
+    padding-inline: 16px;
+    padding-block: 24px 36px;
+  }
+  .scroll { max-width: 880px; margin: 0 auto; }
+  .rod {
+    height: 14px;
+    margin-inline: -8px;
+    border-radius: 7px;
+    background: linear-gradient(var(--rod-hi), var(--rod-lo));
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .45);
+  }
+  .mount {
+    background: var(--silk);
+    box-shadow: inset 0 0 0 1px var(--silk-edge), 0 10px 30px rgba(0, 0, 0, .4);
+    padding: 22px 20px 26px;
+  }
+  #stage { line-height: 0; box-shadow: 0 0 0 1px rgba(70, 50, 25, .45); }
+  #stage canvas { display: block; max-width: 100%; touch-action: manipulation; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 12px 20px;
+    align-items: center; justify-content: center;
+    margin-top: 22px;
+  }
+  #music {
+    font: inherit; font-size: 18px; letter-spacing: .15em;
+    color: #f3e9d3; background: var(--seal);
+    border: 1px solid #7e1c16; border-radius: 4px;
+    padding: 8px 20px 8px 22px; cursor: pointer;
+    box-shadow: 0 2px 0 #6d1712;
+  }
+  #music:hover { background: #c3352c; }
+  #music:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+  #music[aria-pressed="true"] { background: #3a302a; border-color: #5a4a3e; box-shadow: 0 2px 0 #151210; }
+  .hint { font-size: 15px; color: var(--muted); margin: 0; }
+  @media (max-width: 560px) {
+    .mount { padding: 12px 10px 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="scroll">
+  <div class="rod"></div>
+  <div class="mount"><div id="stage" role="img" aria-label="水墨中秋卡片：明月、遠山，胖師傅吃月餅喝酒，玉兔在一旁跳，題字「中秋節快樂」"></div></div>
+  <div class="rod"></div>
+</div>
+<div class="controls">
+  <button id="music" type="button" aria-pressed="false">奏樂 ♪</button>
+  <p class="hint">點胖師傅，他會笑；點玉兔，牠會跳。</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script>
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const INK = [38, 32, 28], ROBE = [176, 118, 60], ROBE_D = [138, 86, 42], SKIN = [242, 212, 178];
+const TITLE = [...'中秋節快樂'];
+const FONT = "'LXGW WenKai TC', 'Kaiti TC', KaiTi, 'Noto Serif TC', serif";
+
+let W, H, u, L;
+let paperG, mountG, cakeG, clouds = [];
+let crumbs = [], smoke = [];
+let bites = 0, cakeDirty = true;
+const man = { laughT: 0 };
+const rabbit = { x: 0, dir: 1, hopT: 0, hopDur: 28, hopH: 22, hopDx: 26, wait: 40, land: 0 };
+const BITES = [[34, 6, 15], [39, 18, 15], [35, 31, 15]];
+
+function computeSize() {
+  const w = document.getElementById('stage').clientWidth;
+  W = Math.round(w);
+  const land = w >= 560;
+  H = Math.round(land ? w * 0.66 : w * 1.35);
+  u = Math.min(W, H) / 600;
+  L = land
+    ? { moon: [.27, .31], moonR: .2, title: [.9, .09], man: [.4, .86], rabbitY: .92, rabbitX: [.68, .82], tsize: 56 }
+    : { moon: [.37, .2], moonR: .26, title: [.86, .06], man: [.42, .86], rabbitY: .95, rabbitX: [.6, .8], tsize: 60 };
+  rabbit.x = L.rabbitX[0] * W;
+}
+
+function setup() {
+  computeSize();
+  createCanvas(W, H).parent('stage');
+  buildAll();
+  if (document.fonts) document.fonts.load("48px 'LXGW WenKai TC'", TITLE.join('') + '秋').catch(() => {});
+}
+
+function windowResized() {
+  const oldW = W;
+  computeSize();
+  if (W === oldW) return;
+  resizeCanvas(W, H);
+  buildAll();
+}
+
+function buildAll() {
+  randomSeed(8); noiseSeed(8);
+  buildPaper(); buildMountains(); buildClouds(); cakeDirty = true;
+}
+
+/* ---------- 宣紙 ---------- */
+function buildPaper() {
+  paperG = createGraphics(W, H); paperG.pixelDensity(1);
+  paperG.background(236, 226, 204);
+  paperG.noStroke();
+  for (let i = 0; i < W * H / 60; i++) {
+    paperG.fill(120, 100, 70, random(4, 12));
+    paperG.circle(random(W), random(H), random(.5, 2));
+  }
+  paperG.strokeWeight(.6);
+  for (let i = 0; i < W * H / 900; i++) {
+    const x = random(W), y = random(H), a = random(TAU), l = random(4, 14);
+    paperG.stroke(150, 130, 100, random(10, 26));
+    paperG.line(x, y, x + cos(a) * l, y + sin(a) * l);
+  }
+  const ctx = paperG.drawingContext;
+  const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .3, W / 2, H / 2, Math.max(W, H) * .78);
+  g.addColorStop(0, 'rgba(120,90,50,0)');
+  g.addColorStop(1, 'rgba(120,90,50,0.3)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+
+/* ---------- 遠山 ---------- */
+function buildMountains() {
+  mountG = createGraphics(W, H); mountG.pixelDensity(1);
+  const ctx = mountG.drawingContext;
+  const layers = [
+    { base: .6, amp: .2, k: 2.2, a: .17, depth: .26, s: 1 },
+    { base: .69, amp: .15, k: 3.4, a: .27, depth: .2, s: 7 },
+    { base: .78, amp: .09, k: 5, a: .36, depth: .16, s: 13 },
+    { base: .9, amp: .035, k: 2, a: .22, depth: .12, s: 21 }
+  ];
+  for (const ly of layers) {
+    const pts = [];
+    for (let x = 0; x <= W + 3; x += 3) {
+      const n = noise(x / W * ly.k + ly.s * 10, ly.s);
+      pts.push([x, H * ly.base - H * ly.amp * (n * 1.5 - .25)]);
+    }
+    const top = H * (ly.base - ly.amp);
+    const g = ctx.createLinearGradient(0, top, 0, H * (ly.base + ly.depth));
+    g.addColorStop(0, `rgba(42,37,33,${ly.a})`);
+    g.addColorStop(1, 'rgba(42,37,33,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (const p of pts) ctx.lineTo(p[0], p[1]);
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    // 乾筆稜線
+    for (let i = 1; i < pts.length; i++) {
+      const w = noise(i * .05, ly.s * 3);
+      mountG.stroke(30, 26, 22, 255 * ly.a * 1.5 * (w + .2));
+      mountG.strokeWeight(.5 + w * 3 * u);
+      mountG.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
+    }
+    // 皴法
+    mountG.strokeWeight(.8);
+    for (let i = 0; i < W / 5; i++) {
+      const p = pts[floor(random(pts.length))];
+      const len = random(6, 30) * u;
+      mountG.stroke(30, 26, 22, 255 * ly.a * random(.3, .9));
+      mountG.line(p[0], p[1] + random(2, 12) * u, p[0] + random(-4, 4) * u, p[1] + len);
+    }
+  }
+}
+
+/* ---------- 雲 ---------- */
+function makeCloud(w, h) {
+  const g = createGraphics(w, h); g.pixelDensity(1); g.noStroke();
+  for (let i = 0; i < 220; i++) {
+    const t = random(), env = sin(PI * t);
+    const y = h * .5 + randomGaussian() * h * .1 * env;
+    const r = h * (.1 + .28 * env * random());
+    g.fill(252, 248, 238, random(10, 24));
+    g.ellipse(t * w, y, r * 2.6, r * .9);
+  }
+  g.noFill();
+  for (let j = 0; j < 3; j++) {
+    g.stroke(70, 62, 55, 30 + j * 8); g.strokeWeight(1.1);
+    g.beginShape();
+    for (let t = .08; t <= .92; t += .02) {
+      const env = sin(PI * t);
+      g.vertex(t * w, h * .5 + (j - 1) * h * .12 * env + sin(t * 10 + j * 2) * h * .05);
+    }
+    g.endShape();
+  }
+  return g;
+}
+function buildClouds() {
+  clouds = [];
+  const ys = [L.moon[1] - .06, L.moon[1] + .1, L.moon[1] + .22];
+  ys.forEach((y, i) => {
+    const w = W * random(.32, .45), h = H * .07;
+    clouds.push({ g: makeCloud(w, h), x: random(-w, W), y: y * H, v: (.12 + i * .06) * u, w, h });
+  });
+}
+
+/* ---------- 月亮 ---------- */
+function drawMoon() {
+  const mx = L.moon[0] * W, my = L.moon[1] * H, R = L.moonR * Math.min(W, H);
+  const pulse = REDUCED ? 0 : sin(frameCount * .02) * .03;
+  noStroke();
+  for (let i = 12; i > 0; i--) { fill(255, 222, 170, 8); circle(mx, my, R * 2 + i * R * (.14 + pulse)); }
+  fill(248, 238, 212); circle(mx, my, R * 2);
+  fill(205, 184, 140, 22);
+  ellipse(mx + R * .28, my - R * .12, R * .72, R * .5);
+  ellipse(mx - R * .32, my + R * .3, R * .5, R * .34);
+  ellipse(mx + R * .05, my + R * .45, R * .3, R * .18);
+  noFill(); stroke(90, 75, 55, 45); strokeWeight(1.4 * u); circle(mx, my, R * 2);
+}
+
+/* ---------- 題字與印章 ---------- */
+function drawTitle() {
+  const ctx = drawingContext;
+  const s = L.tsize * u, x = L.title[0] * W, y0 = L.title[1] * H + s * .55;
+  ctx.save();
+  ctx.font = `${s}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  TITLE.forEach((c, i) => {
+    const y = y0 + i * s * 1.12;
+    ctx.fillStyle = 'rgba(40,34,30,0.16)'; ctx.fillText(c, x + 1.6 * u, y + 1.4 * u);
+    ctx.fillStyle = 'rgba(30,26,23,0.93)'; ctx.fillText(c, x, y);
+  });
+  const ss = s * .62, sy = y0 + TITLE.length * s * 1.12 + ss * .05;
+  ctx.fillStyle = 'rgba(178,44,36,0.9)';
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - ss / 2, sy - ss / 2, ss, ss, ss * .08) : ctx.rect(x - ss / 2, sy - ss / 2, ss, ss); ctx.fill();
+  ctx.fillStyle = '#f0e4cc'; ctx.font = `${ss * .72}px ${FONT}`;
+  ctx.fillText('秋', x, sy + ss * .03);
+  ctx.restore();
+}
+
+/* ---------- 月餅 ---------- */
+function buildCake() {
+  const s = 40;
+  if (!cakeG) { cakeG = createGraphics(s, s); cakeG.pixelDensity(2); }
+  cakeG.clear();
+  cakeG.stroke(70, 45, 25); cakeG.strokeWeight(1.4); cakeG.fill(198, 140, 70);
+  cakeG.circle(s / 2, s / 2, s - 4);
+  cakeG.noFill(); cakeG.stroke(150, 95, 45); cakeG.strokeWeight(1.1);
+  cakeG.circle(s / 2, s / 2, s * .5);
+  for (let i = 0; i < 8; i++) {
+    const a = i * TAU / 8;
+    cakeG.circle(s / 2 + cos(a) * s * .34, s / 2 + sin(a) * s * .34, 5);
+  }
+  if (bites) {
+    cakeG.erase();
+    BITES.slice(0, bites).forEach(([x, y, r]) => cakeG.circle(x, y, r));
+    cakeG.noErase();
+  }
+}
+
+/* ---------- 胖師傅與桌、烤肉爐 ---------- */
+const ease = t => t * t * (3 - 2 * t);
+function bump(p, a, b, c, d) {
+  if (p < a || p > d) return 0;
+  if (p < b) return ease((p - a) / (b - a));
+  if (p < c) return 1;
+  return 1 - ease((p - c) / (d - c));
+}
+
+function drawGrill(x, y) {
+  stroke(INK); strokeWeight(2);
+  line(x - 24, y - 26, x - 30, y); line(x + 24, y - 26, x + 30, y);
+  fill(44, 40, 38); rect(x - 36, y - 42, 72, 18, 3);
+  noStroke();
+  for (let i = 0; i < 7; i++) {
+    const fl = REDUCED ? .5 : noise(i, frameCount * .05);
+    fill(235, 90 + fl * 90, 40, 150 + fl * 100);
+    circle(x - 27 + i * 9, y - 42, 6 + fl * 3);
+  }
+  stroke(INK); strokeWeight(1.2); line(x - 36, y - 46, x + 36, y - 46);
+  for (let i = 0; i < 3; i++) {
+    const sx = x - 22 + i * 20;
+    stroke(120, 100, 70); strokeWeight(1.2); line(sx - 14, y - 48, sx + 14, y - 52);
+    noStroke(); fill(120, 62, 38);
+    for (let j = 0; j < 3; j++) ellipse(sx - 7 + j * 7, y - 49.5 - j * .5, 6, 5);
+  }
+  if (frameCount % (REDUCED ? 16 : 6) === 0) {
+    smoke.push({ x: x + random(-24, 24), y: y - 54, r: random(6, 10), life: 170, max: 170, s: random(100) });
+  }
+}
+
+function drawSmoke() {
+  noStroke();
+  for (let i = smoke.length - 1; i >= 0; i--) {
+    const m = smoke[i];
+    m.y -= .55; m.x += sin(frameCount * .02 + m.s) * .35 + .12; m.r += .3; m.life--;
+    fill(80, 74, 68, 46 * (m.life / m.max));
+    ellipse(m.x, m.y, m.r * 1.4, m.r);
+    if (m.life <= 0) smoke.splice(i, 1);
+  }
+}
+
+function drawTable(x, y) {
+  stroke(INK); strokeWeight(1.8);
+  fill(92, 58, 38);
+  rect(x - 56, y - 41, 8, 41); rect(x + 48, y - 41, 8, 41);
+  rect(x - 64, y - 50, 128, 10, 2);
+  fill(242, 238, 228); ellipse(x - 18, y - 53, 76, 12);
+  const cake = (cx, cy) => {
+    fill(190, 132, 64); rect(cx - 12, cy - 7, 24, 9, 3);
+    fill(212, 158, 88); ellipse(cx, cy - 7, 24, 8);
+  };
+  cake(x - 30, y - 55); cake(x - 6, y - 55); cake(x - 18, y - 64);
+  // 柚子
+  fill(198, 202, 104); circle(x + 34, y - 65, 30);
+  noFill(); stroke(150, 150, 70); strokeWeight(1); arc(x + 34, y - 65, 18, 26, -1.2, 1.2);
+  stroke(INK); strokeWeight(1.5); line(x + 34, y - 80, x + 36, y - 86);
+  fill(92, 124, 72); ellipse(x + 43, y - 86, 16, 7);
+}
+
+function drawArm(a, b) {
+  const e = createVector((a.x + b.x) / 2 + Math.sign(a.x) * 22, Math.max(a.y, b.y) + 10);
+  noFill(); strokeCap(ROUND); strokeJoin(ROUND);
+  stroke(INK); strokeWeight(27);
+  beginShape(); vertex(a.x, a.y); vertex(e.x, e.y); vertex(b.x, b.y); endShape();
+  stroke(ROBE); strokeWeight(22);
+  beginShape(); vertex(a.x, a.y); vertex(e.x, e.y); vertex(b.x, b.y); endShape();
+  stroke(INK); strokeWeight(1.8); fill(SKIN); circle(b.x, b.y, 18);
+}
+
+function drawCup(x, y, d) {
+  push(); translate(x, y); rotate(-d * .7);
+  stroke(INK); strokeWeight(1.5); fill(246, 243, 234);
+  quad(-9, -9, 9, -9, 6, 6, -6, 6);
+  stroke(60, 90, 140); strokeWeight(1.4); line(-7, -4, 7, -4);
+  pop();
+}
+
+function drawMan() {
+  const ox = L.man[0] * W, oy = L.man[1] * H;
+  const f = frameCount, P = 420, p = (f % P) / P;
+  const eat = bump(p, 0, .1, .18, .28), drink = bump(p, .5, .6, .7, .8);
+  if (f % P === Math.floor(.15 * P)) {
+    bites++; cakeDirty = true;
+    for (let i = 0; i < 10; i++) crumbs.push({ x: 12 + random(-6, 6), y: -130, vx: random(-1.2, 1.2), vy: random(-1.5, .3), life: 90 });
+  }
+  if (f % P === Math.floor(.3 * P) && bites >= 3) { bites = 0; cakeDirty = true; }
+  if (cakeDirty) { buildCake(); cakeDirty = false; }
+  const chewing = p > .17 && p < .46;
+  const laugh = man.laughT > 0 ? man.laughT / 90 : 0;
+  if (man.laughT > 0) man.laughT--;
+  const amp = REDUCED ? .3 : 1;
+  const jig = sin(f * .08) * .012 * amp + laugh * sin(f * .9) * .05 * amp;
+  const bob = sin(f * .08) * 1.5 * amp + laugh * sin(f * .9) * 4 * amp - drink * 3;
+  const chew = abs(sin(f * .4));
+
+  push(); translate(ox, oy); scale(u);
+  drawGrill(-172, 0);
+
+  stroke(INK); strokeWeight(1.5); fill(214, 190, 140); ellipse(0, 2, 220, 30);
+  fill(ROBE_D); strokeWeight(2.5); ellipse(0, -14, 178, 44);
+
+  push(); translate(0, -72); scale(1 + jig, 1 - jig * .6);
+  fill(ROBE); stroke(INK); strokeWeight(2.5); ellipse(0, 0, 158, 148);
+  fill(SKIN); strokeWeight(2); ellipse(0, 10, 98, 100);
+  noFill(); stroke(ROBE_D); strokeWeight(1.3); arc(0, 12, 78, 80, PI * .2, PI * .8);
+  stroke(INK); strokeWeight(1.4); arc(0, 24, 10, 7, 0, PI);
+  pop();
+
+  push(); translate(0, -162 + bob); rotate(-drink * .08);
+  stroke(INK); strokeWeight(2.2); fill(SKIN);
+  ellipse(-37, 4, 14, 18); ellipse(37, 4, 14, 18);
+  ellipse(0, 0, 80, 76);
+  noFill(); strokeWeight(1.3); arc(0, 26, 44, 14, .25, PI - .25);
+  noStroke(); fill(INK); ellipse(0, -40, 22, 18); rect(-9, -36, 18, 6, 2);
+  stroke(INK); noFill(); strokeWeight(2);
+  arc(-15, -15, 15, 6, PI, TWO_PI); arc(15, -15, 15, 6, PI, TWO_PI);
+  strokeWeight(2.4);
+  arc(-15, -2, 13, 9, PI, TWO_PI); arc(15, -2, 13, 9, PI, TWO_PI);
+  noStroke(); fill(232, 118, 108, 115);
+  const cb = chewing ? 1 + .2 * chew : 1 + laugh * .2;
+  ellipse(-23, 10, 17 * cb, 10 * cb); ellipse(23, 10, 17 * cb, 10 * cb);
+  stroke(INK); strokeWeight(2); fill(150, 42, 40);
+  if (laugh > 0) arc(0, 14, 28, 22, 0, PI, CHORD);
+  else if (chewing) ellipse(0, 17, 10 + 4 * chew, 3 + 6 * chew);
+  else if (eat > .5) ellipse(0, 17, 16 * eat, 14 * eat);
+  else if (drink > .5) ellipse(0, 17, 8, 7);
+  else { noFill(); arc(0, 12, 26, 16, .15, PI - .15); }
+  pop();
+
+  const my = -146 + bob;
+  const shR = createVector(62, -112), shL = createVector(-62, -112);
+  const hR = p5.Vector.lerp(createVector(86, -58), createVector(16, my + 4), eat);
+  const hL = p5.Vector.lerp(createVector(-82, -56), createVector(-12, my + 2), drink);
+  drawArm(shL, hL); drawCup(hL.x + 5, hL.y - 9, drink);
+  drawArm(shR, hR);
+  imageMode(CENTER); image(cakeG, hR.x - 3, hR.y - 10, 34, 34); imageMode(CORNER);
+
+  drawTable(152, 0);
+
+  noStroke(); fill(176, 112, 52);
+  for (let i = crumbs.length - 1; i >= 0; i--) {
+    const c = crumbs[i];
+    if (c.y < -4) { c.vy += .22; c.x += c.vx; c.y += c.vy; } else { c.y = -4; c.life -= 1; }
+    circle(c.x, c.y, 3.2);
+    if (--c.life <= 0) crumbs.splice(i, 1);
+  }
+  drawSmoke();
+  pop();
+}
+
+/* ---------- 玉兔 ---------- */
+function startHop(big) {
+  const [a, b] = L.rabbitX;
+  if (!big && random() < .18) rabbit.dir *= -1;
+  if (rabbit.x > b * W) rabbit.dir = -1;
+  if (rabbit.x < a * W) rabbit.dir = 1;
+  const k = REDUCED ? .4 : 1;
+  rabbit.hopDur = big ? 46 : 28;
+  rabbit.hopH = (big ? 80 : 22) * k;
+  rabbit.hopDx = big ? 30 : 24;
+  rabbit.hopT = rabbit.hopDur;
+}
+
+function drawRabbit() {
+  const y0 = L.rabbitY * H;
+  let hy = 0;
+  if (rabbit.hopT > 0) {
+    rabbit.hopT--;
+    const t = 1 - rabbit.hopT / rabbit.hopDur;
+    hy = -sin(PI * t) * rabbit.hopH;
+    rabbit.x += rabbit.dir * rabbit.hopDx * u / rabbit.hopDur;
+    if (rabbit.hopT === 0) { rabbit.land = 8; rabbit.wait = random(25, 80); }
+  } else if (--rabbit.wait <= 0) startHop(false);
+  const sq = rabbit.land > 0 ? .12 * rabbit.land-- / 8 : 0;
+
+  noStroke(); fill(40, 34, 30, 40 - hy * .3);
+  ellipse(rabbit.x, y0, (46 + hy * .2) * u, 8 * u);
+
+  push(); translate(rabbit.x, y0 + hy * u); scale(u * rabbit.dir, u);
+  scale(1 + sq, 1 - sq);
+  stroke(INK); strokeWeight(1.8); fill(251, 248, 240);
+  circle(-24, -19, 11);
+  ellipse(0, -18, 48, 33);
+  const flop = hy < -5 ? .25 : 0;
+  push(); translate(14, -46); rotate(-.45 - flop); ellipse(0, -14, 10, 30); pop();
+  push(); translate(20, -46); rotate(-.1 - flop); ellipse(0, -14, 10, 30);
+  noStroke(); fill(236, 176, 170); ellipse(0, -14, 4, 20); pop();
+  stroke(INK); strokeWeight(1.8); fill(251, 248, 240);
+  circle(20, -34, 26);
+  noStroke(); fill(200, 40, 40); circle(26, -37, 4.5);
+  fill(236, 150, 150); circle(32, -31, 3);
+  stroke(INK); strokeWeight(1.4); fill(251, 248, 240);
+  ellipse(12, -3, 18, 7);
+  pop();
+}
+
+/* ---------- 主迴圈 ---------- */
+function draw() {
+  image(paperG, 0, 0, W, H);
+  drawMoon();
+  for (const c of clouds) {
+    if (!REDUCED) c.x += c.v;
+    if (c.x > W + 10) c.x = -c.w;
+    image(c.g, c.x, c.y - c.h / 2, c.w, c.h);
+  }
+  image(mountG, 0, 0, W, H);
+  drawTitle();
+  drawMan();
+  drawRabbit();
+  cursor(overMan() || overRabbit() ? HAND : ARROW);
+}
+
+function overMan() {
+  const lx = (mouseX - L.man[0] * W) / u, ly = (mouseY - L.man[1] * H) / u;
+  return dist(lx, ly, 0, -105) < 100;
+}
+function overRabbit() {
+  return dist(mouseX, mouseY, rabbit.x, L.rabbitY * H - 25 * u) < 48 * u;
+}
+function mousePressed() {
+  if (overRabbit()) { if (rabbit.hopT <= 0) startHop(true); }
+  else if (overMan()) man.laughT = 90;
+}
+
+/* ---------- 古箏風配樂（Web Audio 合成） ---------- */
+const music = (() => {
+  let ctx, master, timer, nextT = 0, idx = 0, drones = [];
+  const beat = .6;
+  const D4 = 293.66, fr = n => D4 * Math.pow(2, n / 12);
+  const tune = [[12,1],[9,.5],[7,.5],[9,1],[4,1],[7,1.5],[4,.5],[2,1],[0,1],
+                [2,.5],[4,.5],[7,1],[9,.5],[12,.5],[9,1],[7,2],
+                [12,1],[14,.5],[12,.5],[9,1],[7,1],[4,1],[7,.5],[9,.5],[4,1],
+                [2,1],[4,.5],[2,.5],[0,2],[null,1]];
+  function pluck(f, t, dur, vol) {
+    const o = ctx.createOscillator(), o2 = ctx.createOscillator();
+    o.type = 'triangle'; o.frequency.value = f;
+    o2.type = 'sine'; o2.frequency.value = f * 2;
+    const g2 = ctx.createGain(); g2.gain.value = .25;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(f * 7, t); lp.frequency.exponentialRampToValueAtTime(f * 1.5, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + .008);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(master);
+    o.start(t); o2.start(t); o.stop(t + dur + .05); o2.stop(t + dur + .05);
+  }
+  function tick() {
+    while (nextT < ctx.currentTime + .3) {
+      const [n, b] = tune[idx];
+      if (n !== null) pluck(fr(n), nextT, 1.8, .32);
+      if (idx === 0 || idx === 9 || idx === 16 || idx === 25) pluck(fr(-12), nextT, 3, .22);
+      nextT += b * beat; idx = (idx + 1) % tune.length;
+    }
+  }
+  return {
+    start() {
+      if (!ctx) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        master = ctx.createGain(); master.gain.value = 0;
+        const delay = ctx.createDelay(); delay.delayTime.value = .31;
+        const fb = ctx.createGain(); fb.gain.value = .32;
+        const wet = ctx.createGain(); wet.gain.value = .28;
+        master.connect(ctx.destination);
+        master.connect(delay); delay.connect(fb).connect(delay); delay.connect(wet).connect(ctx.destination);
+      }
+      ctx.resume();
+      const t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(master.gain.value, t);
+      master.gain.linearRampToValueAtTime(.8, t + .4);
+      drones = [fr(-24), fr(-17)].map(f => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f; g.gain.value = .045;
+        o.connect(g).connect(master); o.start(); return o;
+      });
+      nextT = t + .1; idx = 0;
+      timer = setInterval(tick, 100); tick();
+    },
+    stop() {
+      clearInterval(timer);
+      const t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(master.gain.value, t);
+      master.gain.linearRampToValueAtTime(0, t + .5);
+      drones.forEach(o => o.stop(t + .6)); drones = [];
+    }
+  };
+})();
+
+const btn = document.getElementById('music');
+btn.addEventListener('click', () => {
+  const on = btn.getAttribute('aria-pressed') !== 'true';
+  btn.setAttribute('aria-pressed', String(on));
+  btn.textContent = on ? '停樂 ■' : '奏樂 ♪';
+  on ? music.start() : music.stop();
+});
+</script>
+</body>
+</html>

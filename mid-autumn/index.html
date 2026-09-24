@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="水墨風中秋卡片：明月、遠山，胖師傅吃月餅，玉兔跳呀跳。">
+<meta name="description" content="水墨風中秋卡片：嫦娥在月前甩水袖跳舞，胖師傅吃月餅，玉兔跳呀跳。">
 <meta property="og:type" content="website">
 <meta property="og:title" content="中秋節快樂">
-<meta property="og:description" content="水墨風中秋卡片：明月、遠山，胖師傅吃月餅，玉兔跳呀跳。點開來看看！">
+<meta property="og:description" content="水墨風中秋卡片：嫦娥在月前甩水袖跳舞，胖師傅吃月餅，玉兔跳呀跳。點開來看看！">
 <meta property="og:url" content="https://bhnddowinf.github.io/mid-autumn/">
 <meta property="og:image" content="https://bhnddowinf.github.io/mid-autumn/og.png">
 <meta property="og:image:width" content="1200">
@@ -66,7 +66,7 @@
   #music:hover { background: #c3352c; }
   #music:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
   #music[aria-pressed="true"] { background: #3a302a; border-color: #5a4a3e; box-shadow: 0 2px 0 #151210; }
-  .hint { font-size: 15px; color: var(--muted); margin: 0; }
+  .hint { font-size: 15px; color: var(--muted); margin: 0; text-align: center; text-wrap: balance; }
   @media (max-width: 560px) {
     .mount { padding: 12px 10px 14px; }
   }
@@ -75,12 +75,12 @@
 <body>
 <div class="scroll">
   <div class="rod"></div>
-  <div class="mount"><div id="stage" role="img" aria-label="水墨中秋卡片：明月、遠山，胖師傅吃月餅喝酒，玉兔在一旁跳，題字「中秋節快樂」"></div></div>
+  <div class="mount"><div id="stage" role="img" aria-label="水墨中秋卡片：明月、遠山，嫦娥在月前甩水袖跳舞，桂花飄落，胖師傅吃月餅喝酒，玉兔在一旁跳，題字「中秋節快樂」"></div></div>
   <div class="rod"></div>
 </div>
 <div class="controls">
   <button id="music" type="button" aria-pressed="false">奏樂 ♪</button>
-  <p class="hint">點胖師傅，他會笑；點玉兔，牠會跳。</p>
+  <p class="hint">點嫦娥，她會轉圈；點胖師傅，他會笑；點玉兔，牠會跳。</p>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
@@ -92,7 +92,7 @@ const FONT = "'LXGW WenKai TC', 'Kaiti TC', KaiTi, 'Noto Serif TC', serif";
 
 let W, H, u, L;
 let paperG, mountG, cakeG, clouds = [];
-let crumbs = [], smoke = [];
+let crumbs = [], smoke = [], petals = [];
 let bites = 0, cakeDirty = true;
 const man = { laughT: 0 };
 const rabbit = { x: 0, dir: 1, hopT: 0, hopDur: 28, hopH: 22, hopDx: 26, wait: 40, land: 0 };
@@ -107,6 +107,7 @@ function computeSize() {
   L = land
     ? { moon: [.27, .31], moonR: .2, title: [.9, .09], man: [.4, .86], rabbitY: .92, rabbitX: [.68, .82], tsize: 56 }
     : { moon: [.37, .2], moonR: .26, title: [.86, .06], man: [.42, .86], rabbitY: .95, rabbitX: [.6, .8], tsize: 60 };
+  L.change = [L.moon[0], L.moon[1] + L.moonR * Math.min(W, H) / H * .78];
   rabbit.x = L.rabbitX[0] * W;
 }
 
@@ -127,7 +128,8 @@ function windowResized() {
 
 function buildAll() {
   randomSeed(8); noiseSeed(8);
-  buildPaper(); buildMountains(); buildClouds(); cakeDirty = true;
+  buildPaper(); buildMountains(); buildClouds(); initPetals(); cakeDirty = true;
+  change.sleeves = [[], []];
 }
 
 /* ---------- 宣紙 ---------- */
@@ -429,6 +431,188 @@ function drawMan() {
   pop();
 }
 
+/* ---------- 嫦娥水袖舞 ---------- */
+const change = { spinT: 0, lastIdx: -1, sleeves: [[], []] };
+// [左肩, 左肘, 右肩, 右肘, 身體傾斜]；肩角 0 = 手臂下垂，越大越往外往上
+const POSES = [
+  [2.6, .3, 2.6, .3, 0],
+  [2.4, .5, 1.0, -.4, .08],
+  [1.6, .2, 1.6, .2, -.04],
+  [1.0, -.4, 2.4, .5, -.08],
+  [2.9, .8, .6, .6, .1],
+  [1.8, .1, 1.8, .1, 0]
+];
+const GOWN = [246, 212, 214], GOWN_D = [214, 150, 160], SASH = [196, 58, 58], SILK = [252, 249, 242];
+
+function dancePose(f) {
+  const t = f / 100, i = floor(t) % POSES.length, j = (i + 1) % POSES.length;
+  const e = ease(constrain((t % 1) * 1.4, 0, 1));
+  const P = POSES[i].map((v, k) => lerp(v, POSES[j][k], e));
+  const w = sin(f * .05) * .12;
+  P[0] += w; P[2] -= w; P[1] += sin(f * .07) * .15; P[3] += cos(f * .07) * .15;
+  return { P, idx: i };
+}
+
+function updateSleeve(pts, anchor) {
+  const N = 12, seg = 6.5;
+  if (!pts.length) for (let i = 0; i < N; i++) pts.push(createVector(anchor.x, anchor.y + i * seg));
+  pts[0].set(anchor);
+  for (let i = 1; i < N; i++) {
+    const p = pts[i];
+    p.y += 1.4;
+    p.x += sin(frameCount * .05 + i * .4) * .35;
+    const d = p5.Vector.sub(p, pts[i - 1]).setMag(seg);
+    p.set(p5.Vector.add(pts[i - 1], d));
+  }
+}
+
+function drawSleeve(pts) {
+  strokeCap(ROUND); noFill();
+  for (const pass of [0, 1]) {
+    for (let i = 1; i < pts.length; i++) {
+      const w = lerp(9, 6, i / pts.length);
+      if (pass === 0) { stroke(INK[0], INK[1], INK[2], 170); strokeWeight(w + 2.4); }
+      else { stroke(SILK); strokeWeight(w); }
+      line(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+    }
+  }
+}
+
+function drawSeatCloud() {
+  const puffs = [[-22, 2, 30, 16], [0, -1, 40, 20], [23, 3, 28, 14], [-6, 7, 44, 12]];
+  stroke(INK); strokeWeight(3.2); fill(SILK);
+  puffs.forEach(p => ellipse(...p));
+  noStroke();
+  puffs.forEach(p => ellipse(...p));
+  noFill(); stroke(INK[0], INK[1], INK[2], 150); strokeWeight(1.3);
+  arc(-4, 0, 14, 10, PI, TWO_PI + HALF_PI);
+  arc(18, 3, 10, 7, PI, TWO_PI + HALF_PI);
+}
+
+function drawChange() {
+  const f = REDUCED ? frameCount * .5 : frameCount;
+  const k = u * 1.05;
+  const ox = L.change[0] * W, oy = L.change[1] * H + sin(frameCount * .03) * 5 * u;
+  const { P, idx } = dancePose(f);
+  if (!REDUCED && idx === 5 && change.lastIdx !== 5) change.spinT = 70;
+  change.lastIdx = idx;
+  let sx = 1;
+  if (change.spinT > 0) { sx = cos(ease(1 - change.spinT / 70) * TAU); change.spinT--; }
+  const tilt = P[4];
+  // 與下方 push/scale/rotate 相同的變換，用來算手腕在畫面上的位置
+  const T = p => {
+    const y = p.y + 40;
+    return createVector((p.x * cos(tilt) - y * sin(tilt)) * sx, p.x * sin(tilt) + y * cos(tilt) - 40);
+  };
+  const arms = [-1, 1].map((s, n) => {
+    const a = n ? P[2] : P[0], e = n ? P[3] : P[1];
+    const sh = createVector(s * 11, -80);
+    const el = p5.Vector.add(sh, createVector(s * sin(a), cos(a)).mult(18));
+    const wr = p5.Vector.add(el, createVector(s * sin(a + e), cos(a + e)).mult(16));
+    return { sh, el, wr };
+  });
+  arms.forEach((arm, n) => updateSleeve(change.sleeves[n], T(arm.wr)));
+  const body = () => { translate(0, -40); scale(sx, 1); rotate(tilt); translate(0, 40); };
+  const sway = sin(frameCount * .06) * 4;
+
+  push(); translate(ox, oy); scale(k);
+  drawSeatCloud();
+
+  push(); body();
+  // 飄帶腰帶
+  stroke(INK); strokeWeight(1.3); fill(SASH);
+  beginShape(); vertex(2, -58); bezierVertex(8, -40, -2 + sway, -28, 6 + sway * 1.5, -14);
+  vertex(9 + sway * 1.5, -15); bezierVertex(2 + sway, -28, 12, -40, 6, -58); endShape(CLOSE);
+  // 長裙
+  stroke(INK); strokeWeight(1.8); fill(GOWN);
+  beginShape();
+  vertex(-9, -58);
+  bezierVertex(-14, -40, -24, -20, -30 + sway, -2);
+  bezierVertex(-15, 5, 15, 5, 30 + sway, -2);
+  bezierVertex(24, -20, 14, -40, 9, -58);
+  endShape(CLOSE);
+  noFill(); stroke(GOWN_D); strokeWeight(1.2);
+  line(-4, -50, -12 + sway * .5, -3); line(5, -50, 12 + sway * .5, -3);
+  // 上衣與腰帶
+  stroke(INK); strokeWeight(1.8); fill(SILK);
+  rect(-11, -85, 22, 29, 7);
+  noFill(); strokeWeight(1.2); line(-6, -85, 0, -76); line(6, -85, 0, -76);
+  fill(SASH); strokeWeight(1.5); rect(-11, -62, 22, 6, 2);
+  pop();
+
+  change.sleeves.forEach(drawSleeve);
+
+  push(); body();
+  arms.forEach(({ sh, el, wr }) => {
+    strokeCap(ROUND); noFill();
+    stroke(INK); strokeWeight(8.5);
+    beginShape(); vertex(sh.x, sh.y); vertex(el.x, el.y); vertex(wr.x, wr.y); endShape();
+    stroke(SILK); strokeWeight(6);
+    beginShape(); vertex(sh.x, sh.y); vertex(el.x, el.y); vertex(wr.x, wr.y); endShape();
+  });
+  // 頭
+  stroke(INK); strokeWeight(1.6); fill(SKIN); rect(-3, -90, 6, 7);
+  fill(INK); noStroke();
+  circle(-12, -128, 16); circle(12, -128, 16);
+  ellipse(0, -104, 46, 46);
+  if (sx > 0) {
+    fill(SKIN); stroke(INK); strokeWeight(1.6); ellipse(0, -100, 38, 35);
+    fill(INK); noStroke(); arc(0, -108, 42, 28, PI + .1, TWO_PI - .1, CHORD);
+    fill(SASH); circle(0, -104, 3.2);
+    stroke(INK); strokeWeight(1.8); noFill();
+    arc(-7, -97, 7, 5, PI, TWO_PI); arc(7, -97, 7, 5, PI, TWO_PI);
+    noStroke(); fill(232, 118, 108, 120); ellipse(-11, -92, 8, 5); ellipse(11, -92, 8, 5);
+    fill(196, 50, 50); ellipse(0, -89, 4, 3);
+  }
+  // 髮飾
+  noStroke(); fill(SASH); circle(18, -121, 7); fill(236, 180, 60); circle(18, -121, 2.5);
+  stroke(236, 180, 60); strokeWeight(1.2); line(18, -118, 20, -108);
+  pop();
+
+  pop();
+}
+
+function overChange() {
+  return dist(mouseX, mouseY, L.change[0] * W, L.change[1] * H - 70 * u * 1.05) < 72 * u;
+}
+
+/* ---------- 桂花 ---------- */
+function newPetal(y) {
+  return { x: random(W), y, vy: random(.35, .8) * u + .2, ph: random(TAU), rot: random(TAU), vr: random(-.04, .04), s: random(3.5, 6) * u + 1.5 };
+}
+function initPetals() {
+  petals = [];
+  for (let i = 0; i < (REDUCED ? 12 : 36); i++) petals.push(newPetal(random(H)));
+}
+function burstPetals() {
+  const cx = L.change[0] * W, cy = L.change[1] * H - 75 * u;
+  for (let i = 0; i < 26; i++) {
+    const p = newPetal(cy);
+    p.x = cx; p.temp = true;
+    p.vx = random(-3, 3) * u; p.vy = random(-3, -.5) * u;
+    petals.push(p);
+  }
+}
+function drawPetals() {
+  noStroke();
+  for (let n = petals.length - 1; n >= 0; n--) {
+    const p = petals[n];
+    if (p.temp) { p.x += p.vx; p.vx *= .97; p.vy = Math.min(p.vy + .03, .8 * u); }
+    p.y += p.vy;
+    p.x += sin(frameCount * .02 + p.ph) * .5 * u;
+    p.rot += p.vr;
+    if (p.y > H + 10) {
+      if (p.temp) { petals.splice(n, 1); continue; }
+      Object.assign(p, newPetal(-10));
+    }
+    push(); translate(p.x, p.y); rotate(p.rot);
+    fill(238, 170, 50, 230);
+    for (let i = 0; i < 4; i++) { rotate(HALF_PI); ellipse(0, -p.s * .45, p.s * .55, p.s * .9); }
+    fill(200, 110, 30); circle(0, 0, p.s * .3);
+    pop();
+  }
+}
+
 /* ---------- 玉兔 ---------- */
 function startHop(big) {
   const [a, b] = L.rabbitX;
@@ -488,7 +672,9 @@ function draw() {
   drawTitle();
   drawMan();
   drawRabbit();
-  cursor(overMan() || overRabbit() ? HAND : ARROW);
+  drawChange();
+  drawPetals();
+  cursor(overChange() || overMan() || overRabbit() ? HAND : ARROW);
 }
 
 function overMan() {
@@ -499,7 +685,8 @@ function overRabbit() {
   return dist(mouseX, mouseY, rabbit.x, L.rabbitY * H - 25 * u) < 48 * u;
 }
 function mousePressed() {
-  if (overRabbit()) { if (rabbit.hopT <= 0) startHop(true); }
+  if (overChange()) { if (change.spinT <= 0) change.spinT = 70; burstPetals(); }
+  else if (overRabbit()) { if (rabbit.hopT <= 0) startHop(true); }
   else if (overMan()) man.laughT = 90;
 }
 
